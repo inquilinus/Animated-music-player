@@ -1,20 +1,30 @@
 package com.worlddomination.mushroom.animatedplayer;
 
+       import android.Manifest;
        import android.app.Activity;
-        import android.content.Intent;
-        import android.os.Bundle;
-        import android.support.v4.app.ActivityOptionsCompat;
+       import android.content.ComponentName;
+       import android.content.Context;
+       import android.content.Intent;
+       import android.content.ServiceConnection;
+       import android.content.pm.PackageManager;
+       import android.os.Build;
+       import android.os.Bundle;
+       import android.os.IBinder;
+       import android.support.v4.app.ActivityOptionsCompat;
         import android.support.v7.widget.RecyclerView;
         import android.support.v7.widget.StaggeredGridLayoutManager;
         import android.view.View;
         import android.view.ViewGroup;
         import android.widget.ImageView;
+       import android.widget.Toast;
 
-        import butterknife.Bind;
+       import butterknife.Bind;
         import butterknife.ButterKnife;
 
 
 public class AlbumListActivity extends Activity {
+    private MediaPlayerService player;
+    boolean serviceBound = false;
 
     @Bind(R.id.album_list) RecyclerView mAlbumList;
 
@@ -26,6 +36,46 @@ public class AlbumListActivity extends Activity {
 
         ButterKnife.bind(this);
         populate();
+
+        //        Permission for M and upper platforms
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
+                return;
+            }
+        }
+
+    }
+    //Binding this Client to the AudioPlayer Service
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            MediaPlayerService.LocalBinder binder = (MediaPlayerService.LocalBinder) service;
+            player = binder.getService();
+            serviceBound = true;
+
+            Toast.makeText(AlbumListActivity.this, "Service Bound", Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            serviceBound = false;
+        }
+    };
+
+    private void playAudio(String media) {
+        //Check is service is active
+        if (!serviceBound) {
+            Intent playerIntent = new Intent(this, MediaPlayerService.class);
+            playerIntent.putExtra("media", media);
+            startService(playerIntent);
+            bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+        } else {
+            //Service is active
+            //Send media with BroadcastReceiver
+        }
     }
 
     private void setupTransitions() {
